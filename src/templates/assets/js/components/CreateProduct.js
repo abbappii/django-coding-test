@@ -2,19 +2,35 @@ import React, {useState} from 'react';
 import TagsInput from 'react-tagsinput';
 import 'react-tagsinput/react-tagsinput.css';
 import Dropzone from 'react-dropzone'
+import axios from 'axios'
+import Cookies from 'js-cookie'
 
 
 const CreateProduct = (props) => {
-
-    const [productVariantPrices, setProductVariantPrices] = useState([])
-
-    const [productVariants, setProductVariant] = useState([
-        {
-            option: 1,
-            tags: []
+    let product = props.product
+    if (props.product == undefined) {
+        product = {
+            title: '',
+            sku: '',
+            description: '',
+            product_variant_prices: [],
+            product_variants: [
+                {
+                    option: 1,
+                    tags: []
+                }
+            ]
         }
-    ])
-    console.log(typeof props.variants)
+    } else {
+        product = JSON.parse(props.product.replaceAll("'", '"'))
+    }
+    const [title, setTitle] = useState(product.title)
+    const [sku, setSku] = useState(product.sku)
+    const [description, setDescription] = useState(product.description)
+    const [productVariantPrices, setProductVariantPrices] = useState(product.product_variant_prices)
+    const [productVariants, setProductVariant] = useState(product.product_variants)
+    const [uploadFiles, setUploadFiles] = useState([])
+    // console.log(typeof props.variants)
     // handle click event of the Add button
     const handleAddClick = () => {
         let all_variants = JSON.parse(props.variants.replaceAll("'", '"')).map(el => el.id)
@@ -77,7 +93,51 @@ const CreateProduct = (props) => {
     // Save product
     let saveProduct = (event) => {
         event.preventDefault();
-        // TODO : write your code here to save the product
+        let formData = new FormData();
+
+        formData.append('title', title)
+        formData.append('sku', sku)
+        formData.append('description', description)
+
+        formData.append('product_variants', JSON.stringify(productVariants))
+        formData.append('product_variant_prices', JSON.stringify(productVariantPrices))
+        formData.append('product_images', JSON.stringify(uploadFiles))
+
+        const url = props.product == undefined ? '/product/create/' : '/product/edit/' + product.id + '/'
+
+        if (title == '' || sku == '' || description == '') {
+            alert('Please complete the form and try again!')
+            return false
+        }
+
+        if (productVariants.length > 0) {
+            let flag = false;
+            productVariants.forEach(item => {
+                if (item.tags.length == 0) {
+                    alert('Please add variant tags')
+                    flag = true
+                }
+            })
+
+            if (flag) {
+                return false
+            }
+        }
+
+        axios.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'X-CSRFToken': Cookies.get('csrftoken')
+            },
+        }).then(response => {
+            // show toast 
+            alert(response.data.status)
+            if (response.data.status == 'success') {
+                window.location.reload()
+            }
+        }, error => {
+            console.log(error)
+        })
     }
 
 
@@ -90,15 +150,15 @@ const CreateProduct = (props) => {
                             <div className="card-body">
                                 <div className="form-group">
                                     <label htmlFor="">Product Name</label>
-                                    <input type="text" placeholder="Product Name" className="form-control"/>
+                                    <input value={title} onChange={(e)=> setTitle(e.target.value)} type="text" placeholder="Product Name" className="form-control"/>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="">Product SKU</label>
-                                    <input type="text" placeholder="Product Name" className="form-control"/>
+                                    <input value={sku} onChange={(e)=> setSku(e.target.value)} type="text" placeholder="Product SKU" className="form-control"/>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="">Description</label>
-                                    <textarea id="" cols="30" rows="4" className="form-control"></textarea>
+                                    <textarea value={description} onChange={(e)=> setDescription(e.target.value)} id="" cols="30" rows="4" className="form-control"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -109,7 +169,7 @@ const CreateProduct = (props) => {
                                 <h6 className="m-0 font-weight-bold text-primary">Media</h6>
                             </div>
                             <div className="card-body border">
-                                <Dropzone onDrop={acceptedFiles => console.log(acceptedFiles)}>
+                                <Dropzone onDrop={acceptedFiles => setUploadFiles(acceptedFiles)}>
                                     {({getRootProps, getInputProps}) => (
                                         <section>
                                             <div {...getRootProps()}>
@@ -198,14 +258,40 @@ const CreateProduct = (props) => {
                                         <tbody>
                                         {
                                             productVariantPrices.map((productVariantPrice, index) => {
+                                                const handlePriceChange = (e) => {
+                                                  const updatedPrices = [...productVariantPrices];
+                                                  updatedPrices[index].price = e.target.value;
+                                                  setProductVariantPrices(updatedPrices);
+                                                };
+                                              
+                                                const handleStockChange = (e) => {
+                                                  const updatedPrices = [...productVariantPrices];
+                                                  updatedPrices[index].stock = e.target.value;
+                                                  setProductVariantPrices(updatedPrices);
+                                                };
+                                              
                                                 return (
-                                                    <tr key={index}>
-                                                        <td>{productVariantPrice.title}</td>
-                                                        <td><input className="form-control" type="text"/></td>
-                                                        <td><input className="form-control" type="text"/></td>
-                                                    </tr>
-                                                )
-                                            })
+                                                  <tr key={index}>
+                                                    <td>{productVariantPrice.title}</td>
+                                                    <td>
+                                                      <input
+                                                        onChange={handlePriceChange}
+                                                        value={productVariantPrice.price}
+                                                        className="form-control"
+                                                        type="text"
+                                                      />
+                                                    </td>
+                                                    <td>
+                                                      <input
+                                                        onChange={handleStockChange}
+                                                        value={productVariantPrice.stock}
+                                                        className="form-control"
+                                                        type="text"
+                                                      />
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              })
                                         }
                                         </tbody>
                                     </table>

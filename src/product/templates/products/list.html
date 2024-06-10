@@ -91,7 +91,8 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="" class="btn btn-success">Edit</a>
+                                {% comment %} <a href="" class="btn btn-success">Edit</a> {% endcomment %}
+                                <a href="{% url 'product:edit.product' product.id %}" class="btn btn-success">Edit</a>
                             </div>
                         </td>
                     </tr>
